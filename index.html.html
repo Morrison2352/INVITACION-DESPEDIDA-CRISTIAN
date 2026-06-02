@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Despedida de Cristian - Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome para Iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet para el Mapa en vivo -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #0d0f12;
+            background-image: radial-gradient(circle at 50% 0%, #1a1e26 0%, #0d0f12 70%);
+        }
+        /* Estilos estilo iOS Glassmorphism */
+        .ios-widget {
+            background: rgba(26, 29, 36, 0.65);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .ios-widget:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+            transform: translateY(-2px);
+        }
+        /* Ocultar barra de scroll pero mantener funcionalidad */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Mapa oscuro personalizado con alto contraste nocturno */
+        #map {
+            filter: invert(90%) hue-rotate(180deg) brightness(95%) contrast(90%);
+            border-radius: 1.5rem;
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen py-8 px-4 md:px-8 flex flex-col justify-between">
+
+    <!-- Contenedor Principal (Bento Grid) -->
+    <main class="max-w-6xl mx-auto w-full">
+        
+        <!-- Grid Responsivo inspirado en iOS/macOS Dashboard -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+            <!-- 1. WIDGET HERO (PÓSTER DE LA INVITACIÓN) -->
+            <div class="ios-widget rounded-[2rem] overflow-hidden flex flex-col justify-between min-h-[480px] lg:row-span-2 relative">
+                <!-- Imagen de fondo estética de amigos al atardecer -->
+                <div class="absolute inset-0 bg-cover bg-center z-0" style="background-image: linear-gradient(to bottom, rgba(13, 15, 18, 0.2) 0%, rgba(13, 15, 18, 0.95) 100%), url('https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1200&q=80');"></div>
+                
+                <!-- Tag superior -->
+                <div class="relative z-10 p-6 flex justify-between items-start">
+                    <span class="bg-black/40 backdrop-blur-md text-amber-400 border border-amber-500/30 px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wider uppercase flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 bg-amber-500 rounded-full animate-ping"></span>
+                        Quien organiza
+                    </span>
+                </div>
+
+                <!-- Detalles inferiores -->
+                <div class="relative z-10 p-6 md:p-8 space-y-4">
+                    <h1 class="text-4xl font-extrabold tracking-tight text-white leading-none">
+                        ¡Despedida de <br>Soltero de Cristian!
+                    </h1>
+                    
+                    <div class="space-y-2 text-slate-300">
+                        <p class="text-amber-400 font-bold text-sm tracking-wider uppercase">
+                            Sáb, 5 de septiembre, 4:30 p.m.
+                        </p>
+                        <p class="font-medium text-lg text-white">Casa de Cristian</p>
+                        <p class="text-sm text-slate-400">
+                            Calle el Herradero 1056, Arandas, Jal.<br>
+                            <span class="text-amber-500/90 font-semibold">• Casa Blanca</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. WIDGET LISTA DE INVITADOS (TOTALMENTE DINÁMICA) -->
+            <div class="ios-widget rounded-[2rem] p-6 flex flex-col justify-between min-h-[230px]">
+                <div>
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                                <i class="fa-solid fa-users"></i>
+                            </div>
+                            <div>
+                                <h2 class="font-bold text-sm text-slate-200">Lista de personas invitadas</h2>
+                                <p class="text-xs text-slate-400">¿Quién se apunta?</p>
+                            </div>
+                        </div>
+                        <span id="guest-count" class="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap self-start">0 confirmados</span>
+                    </div>
+
+                    <!-- Avatares Dinámicos reales (Comienzan vacíos) -->
+                    <div id="avatars-container" class="flex flex-wrap gap-2 max-h-24 overflow-y-auto no-scrollbar py-1">
+                        <div id="empty-state-text" class="text-xs text-slate-500 italic py-2">Nadie se ha anotado todavía. ¡Sé el primero en confirmar!</div>
+                    </div>
+                </div>
+
+                <!-- Input para confirmarse y agregarse dinámicamente -->
+                <div class="mt-4 pt-4 border-t border-slate-800/80 flex gap-2">
+                    <input id="new-guest" type="text" placeholder="Escribe tu nombre para confirmar..." class="bg-slate-900/60 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs w-full focus:outline-none focus:border-indigo-500 text-slate-200">
+                    <button onclick="confirmAndAddGuest()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-4 rounded-xl transition-all whitespace-nowrap">
+                        Anotarme
+                    </button>
+                </div>
+            </div>
+
+            <!-- 3. WIDGET NOTA DEL ORGANIZADOR -->
+            <div class="ios-widget rounded-[2rem] p-6 flex flex-col justify-between min-h-[230px]">
+                <div>
+                    <div class="flex items-center gap-3 mb-3">
+                        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Cristian" class="w-10 h-10 rounded-full border border-slate-700 bg-slate-800" alt="Cristian">
+                        <div>
+                            <h3 class="font-bold text-sm text-slate-100">Cristian Garcia Sanchez</h3>
+                            <p class="text-xs text-amber-500 font-semibold uppercase tracking-wider">Nota de quien organiza</p>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900/40 border border-slate-800/60 rounded-2xl p-3.5 text-xs text-slate-300 leading-relaxed max-h-28 overflow-y-auto no-scrollbar">
+                        <p class="font-bold text-amber-400 mb-1">¡SOLO HOMBRES!</p>
+                        Están cordialmente invitados a celebrar la próxima etapa en mi vida con una gran carne asada. Queremos pasar un momento agradable, relajado y entre buenos amigos y familia para festejar esta ocasión especial.
+                    </div>
+                </div>
+                <div class="text-[10px] text-slate-500 text-right mt-2">Justo ahora</div>
+            </div>
+
+            <!-- 4. WIDGET CLIMA -->
+            <div class="ios-widget rounded-[2rem] p-6 flex flex-col justify-between min-h-[230px]">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h4 class="font-bold text-slate-400 text-xs uppercase tracking-wider">Clima</h4>
+                        <p class="text-xs text-slate-400">En el día de septiembre</p>
+                    </div>
+                    <div class="text-amber-400 text-3xl">
+                        <i class="fa-solid fa-cloud-sun"></i>
+                    </div>
+                </div>
+                
+                <div class="my-3">
+                    <p class="text-4xl font-extrabold text-white">18°C</p>
+                    <p class="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                        En esta época del año, la temperatura oscila entre <span class="text-slate-200">13°C</span> y <span class="text-slate-200">22°C</span>. Ideal para la carne asada.
+                    </p>
+                </div>
+
+                <div class="flex justify-between text-[11px] text-slate-500 border-t border-slate-800/60 pt-2">
+                    <span>Viento: 12 km/h</span>
+                    <span>Humedad: 65%</span>
+                </div>
+            </div>
+
+            <!-- 5. WIDGET MAPAS (UBICACIÓN REAL EXACTA) -->
+            <div class="ios-widget rounded-[2rem] p-4 flex flex-col justify-between min-h-[230px] lg:col-span-1">
+                <div class="flex justify-between items-center mb-2 px-2">
+                    <div class="flex items-center gap-2">
+                        <div class="w-6 h-6 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-xs">
+                            <i class="fa-solid fa-map-location-dot"></i>
+                        </div>
+                        <span class="font-bold text-xs text-slate-300">Mapas</span>
+                    </div>
+                    <span class="text-[10px] text-slate-500 truncate max-w-[150px]">Col. La Herradura, Arandas</span>
+                </div>
+
+                <!-- Contenedor del Mapa Real Centrado Correctamente -->
+                <div class="w-full h-36 bg-slate-900 rounded-2xl overflow-hidden relative" id="map-container">
+                    <div id="map" class="w-full h-full"></div>
+                </div>
+
+                <div class="pt-2 px-2 flex justify-between items-center">
+                    <span class="text-[10px] text-amber-500 font-semibold">• Calle el Herradero 1056 (Casa Blanca)</span>
+                    <a href="https://maps.google.com/?q=Calle+el+Herradero+1056,+La+Herradura,+Arandas,+Jalisco" target="_blank" class="text-xs text-emerald-400 font-bold flex items-center gap-1 hover:underline whitespace-nowrap">
+                        Abrir GPS <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                    </a>
+                </div>
+            </div>
+
+            <!-- 6. WIDGET GALERÍA DE FOTOS (INTERACTIVA) -->
+            <div class="ios-widget rounded-[2rem] p-6 flex flex-col justify-between min-h-[230px]">
+                <div class="flex justify-between items-center mb-2">
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 bg-pink-500/20 text-pink-400 rounded-full flex items-center justify-center text-xs">
+                            <i class="fa-solid fa-images"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-xs text-slate-200">Fotos</h3>
+                            <p class="text-[10px] text-slate-400">Comparte el momento</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Visual de fotos polaroid / subidas -->
+                <div id="photos-album" class="flex items-center justify-center gap-3 h-24 my-1 relative overflow-hidden">
+                    <!-- Foto 1 -->
+                    <div class="w-16 h-20 bg-slate-800 border-2 border-white rounded-lg shadow-lg rotate-[-6deg] flex-shrink-0 relative overflow-hidden">
+                        <img src="https://images.unsplash.com/photo-1541532713592-79a0317b6b77?q=80&w=200" class="w-full h-14 object-cover" alt="Party">
+                        <div class="bg-white h-6 w-full flex items-center justify-center text-[8px] text-slate-800 font-bold">¡Salud!</div>
+                    </div>
+                    <!-- Foto 2 -->
+                    <div class="w-16 h-20 bg-slate-800 border-2 border-white rounded-lg shadow-lg rotate-[4deg] flex-shrink-0 relative overflow-hidden">
+                        <img src="https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=200" class="w-full h-14 object-cover" alt="Party">
+                        <div class="bg-white h-6 w-full flex items-center justify-center text-[8px] text-slate-800 font-bold">Amigos</div>
+                    </div>
+                    <!-- Foto vacía para subir -->
+                    <label for="photo-upload-input" class="w-16 h-20 border-2 border-dashed border-slate-700 hover:border-pink-500/60 rounded-lg flex flex-col items-center justify-center cursor-pointer transition-colors bg-slate-900/50 hover:bg-slate-900">
+                        <i class="fa-solid fa-plus text-xs text-slate-400"></i>
+                        <span class="text-[8px] text-slate-500 mt-1">Subir</span>
+                    </label>
+                    <input type="file" id="photo-upload-input" accept="image/*" class="hidden" onchange="previewPhoto(event)">
+                </div>
+
+                <div class="pt-2 border-t border-slate-800/60 flex justify-between items-center">
+                    <span class="text-[10px] text-slate-500">Despedida de Cristian</span>
+                    <button onclick="document.getElementById('photo-upload-input').click()" class="bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 text-xs px-3 py-1.5 rounded-xl border border-pink-500/20 font-semibold transition-all">
+                        Agregar fotos
+                    </button>
+                </div>
+            </div>
+
+            <!-- 7. WIDGET PLAYLIST SPOTIFY OFICIAL DEL EVENTO -->
+            <div class="ios-widget rounded-[2rem] p-6 flex flex-col justify-between min-h-[230px]">
+                <div class="flex justify-between items-start">
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-xs">
+                            <i class="fa-solid fa-link"></i>
+                        </div>
+                        <span class="font-bold text-xs text-slate-300">Playlist de Música</span>
+                    </div>
+                    <div class="text-[#1DB954] text-2xl">
+                        <i class="fa-brands fa-spotify"></i>
+                    </div>
+                </div>
+
+                <div class="my-3">
+                    <h4 class="font-extrabold text-sm text-slate-100">Playlist Despedida Cristian</h4>
+                    <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+                        ¡Escucha y agrega tus canciones favoritas directo a la lista de reproducción oficial del evento!
+                    </p>
+                </div>
+
+                <div class="pt-2">
+                    <a href="https://open.spotify.com/playlist/4oSanOhApGl1MUj3upBZVM?si=1bb0999aa27a4522&pt=9b434c8a3e1e4fd0dd91b7e03957cfaf" target="_blank" class="w-full bg-[#1DB954] hover:bg-[#1ed760] text-slate-950 font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs transition-colors shadow-lg shadow-emerald-500/10">
+                        <span>Abrir Playlist Spotify</span>
+                        <i class="fa-solid fa-up-right-from-square text-[10px]"></i>
+                    </a>
+                </div>
+            </div>
+
+            <!-- 8. DETALLES DE DINÁMICA (WIDGET ADICIONAL) -->
+            <div class="ios-widget rounded-[2rem] p-6 flex flex-col justify-between min-h-[230px] lg:col-span-2">
+                <div class="flex items-center gap-2 mb-2">
+                    <div class="w-7 h-7 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center text-xs">
+                        <i class="fa-solid fa-circle-question"></i>
+                    </div>
+                    <span class="font-bold text-xs text-slate-300">Dinámica del Evento</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs my-1">
+                    <div class="bg-slate-900/40 p-3.5 rounded-2xl border border-slate-800">
+                        <p class="font-bold text-amber-400 flex items-center gap-1.5 mb-1">
+                            <i class="fa-solid fa-utensils"></i> COMIDA
+                        </p>
+                        <p class="text-slate-300 leading-relaxed">
+                            La comida corre por nuestra cuenta. Disfrutaremos de una deliciosa carne asada.
+                        </p>
+                    </div>
+                    <div class="bg-slate-900/40 p-3.5 rounded-2xl border border-slate-800">
+                        <p class="font-bold text-amber-400 flex items-center gap-1.5 mb-1">
+                            <i class="fa-solid fa-glass-water"></i> BEBIDAS
+                        </p>
+                        <p class="text-slate-300 leading-relaxed">
+                            Los invitamos a traer lo que gusten tomar para acompañar la tarde (tequila, cerveza, etc).
+                        </p>
+                    </div>
+                </div>
+
+                <div class="text-[10px] text-slate-400 italic">
+                    ¡Prepara tu mejor actitud para celebrar el festejo de Cristian!
+                </div>
+            </div>
+
+        </div>
+
+        <!-- BOTÓN DE CONFIRMACIÓN PRINCIPAL -->
+        <div class="mt-8 mb-12 flex flex-col items-center gap-3">
+            <button onclick="focusOnGuestInput()" class="w-full max-w-md bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold py-4 px-8 rounded-2xl transition-all duration-300 transform hover:-translate-y-1 active:translate-y-0 shadow-xl shadow-amber-500/20 flex items-center justify-center gap-3 text-sm">
+                <i class="fa-solid fa-circle-check text-lg"></i>
+                <span>Confirmar mi asistencia</span>
+            </button>
+            <p class="text-xs text-slate-500">Escribe tu nombre en la sección de invitados para confirmar</p>
+        </div>
+
+    </main>
+
+    <!-- Modal de confirmación moderno e integrado -->
+    <div id="modal-confirmacion" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-slate-900 border border-slate-800 rounded-[2rem] p-8 w-full max-w-sm text-center shadow-2xl scale-95 transition-transform duration-300 transform" id="modal-content">
+            <div class="w-16 h-16 bg-amber-400/10 text-amber-400 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                <i class="fa-solid fa-face-laugh-beam"></i>
+            </div>
+            <h3 class="text-2xl font-extrabold text-white mb-2">¡Ahí nos vemos!</h3>
+            <p id="modal-text-content" class="text-xs text-slate-400 mb-6">Redirigiéndote a WhatsApp para notificar a Cristian sobre tu asistencia...</p>
+            <div class="w-full bg-slate-800 rounded-full h-1.5 mb-6 overflow-hidden">
+                <div class="bg-amber-400 h-full w-0 animate-pulse" style="animation-duration: 1.5s; width: 100%; transition: width 1.2s ease-in-out;"></div>
+            </div>
+            <button onclick="cerrarModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors text-xs">
+                Cancelar y regresar
+            </button>
+        </div>
+    </div>
+
+    <!-- Script de funcionalidades dinámicas -->
+    <script>
+        // Inicializar Mapa en Vivo usando Leaflet (Coordenadas Exactas de Av. del Herradero, Arandas, Jal)
+        let map;
+        window.onload = function() {
+            // Coordenadas geo-localizadas con alta precisión para Avenida Del Herradero, Arandas Jalisco:
+            const exactHerraderoCoord = [20.73039, -102.33888]; 
+            map = L.map('map', {
+                zoomControl: false,
+                attributionControl: false
+            }).setView(exactHerraderoCoord, 16); // Zoom 16 para un plano detallado y claro de las calles
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19
+            }).addTo(map);
+
+            // Marcador personalizado llamativo
+            const customIcon = L.divIcon({
+                html: '<div class="w-8 h-8 bg-emerald-500 rounded-full border-2 border-white shadow-xl flex items-center justify-center text-white"><i class="fa-solid fa-house-chimney text-xs"></i></div>',
+                className: 'custom-marker',
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
+            });
+
+            L.marker(exactHerraderoCoord, {icon: customIcon})
+             .addTo(map)
+             .bindPopup('<b class="text-slate-900">Casa de Cristian (Casa Blanca)</b><br><span class="text-xs text-slate-600">Av. del Herradero #1056</span>')
+             .openPopup();
+
+            // Cargar de localStorage
+            loadSavedGuests();
+        };
+
+        // Arreglo dinámico de Invitados (Inicia vacío para llenado interactivo real)
+        let guests = [];
+
+        function loadSavedGuests() {
+            const saved = localStorage.getItem('cristian_party_guests');
+            if (saved) {
+                guests = JSON.parse(saved);
+            }
+            updateGuestListUI();
+        }
+
+        function saveGuests() {
+            localStorage.setItem('cristian_party_guests', JSON.stringify(guests));
+        }
+
+        function updateGuestListUI() {
+            const container = document.getElementById('avatars-container');
+            const countLabel = document.getElementById('guest-count');
+            
+            if (guests.length === 0) {
+                container.innerHTML = `<div id="empty-state-text" class="text-xs text-slate-500 italic py-2">Nadie se ha anotado todavía. ¡Sé el primero en confirmar!</div>`;
+                countLabel.textContent = `0 confirmados`;
+                return;
+            }
+
+            container.innerHTML = '';
+            guests.forEach(name => {
+                const item = document.createElement('div');
+                item.className = "flex items-center gap-1.5 bg-slate-800/60 border border-slate-700/30 pl-1.5 pr-2.5 py-1 rounded-full text-xs animate-fade-in";
+                item.innerHTML = `
+                    <img src="https://api.dicebear.com/7.x/pixel-art/svg?seed=${encodeURIComponent(name)}" class="w-5 h-5 rounded-full" alt="Avatar">
+                    <span>${name}</span>
+                `;
+                container.appendChild(item);
+            });
+
+            countLabel.textContent = `${guests.length} confirmado${guests.length === 1 ? '' : 's'}`;
+        }
+
+        // Agregar invitado con su nombre real y mandar a WhatsApp
+        function confirmAndAddGuest() {
+            const input = document.getElementById('new-guest');
+            const name = input.value.trim();
+            
+            if (name) {
+                // Evitar duplicados en el listado visual local
+                if (!guests.includes(name)) {
+                    guests.push(name);
+                    saveGuests();
+                    updateGuestListUI();
+                }
+
+                input.value = '';
+                triggerConfirmationWhatsApp(name);
+            } else {
+                input.focus();
+                // Destellar el borde para llamar la atención del invitado
+                input.classList.add('border-indigo-500', 'scale-[1.02]');
+                setTimeout(() => {
+                    input.classList.remove('border-indigo-500', 'scale-[1.02]');
+                }, 800);
+            }
+        }
+
+        function focusOnGuestInput() {
+            const input = document.getElementById('new-guest');
+            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            input.focus();
+            input.classList.add('border-amber-500', 'scale-[1.02]');
+            setTimeout(() => {
+                input.classList.remove('border-amber-500', 'scale-[1.02]');
+            }, 1000);
+        }
+
+        // Disparar WhatsApp con los datos correctos
+        function triggerConfirmationWhatsApp(nameConfirmed) {
+            const modal = document.getElementById('modal-confirmacion');
+            const content = document.getElementById('modal-content');
+            const modalText = document.getElementById('modal-text-content');
+            
+            modalText.textContent = `Agregándote al pizarrón y redirigiéndote a WhatsApp para avisarle a Cristian...`;
+            
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('scale-95');
+            content.classList.add('scale-100');
+
+            const telefono = "523481098508";
+            // Mensaje que incluye el nombre del usuario
+            const mensaje = encodeURIComponent(`¡Hola Cristian! Soy ${nameConfirmed}, te confirmo que asistiré a tu despedida de soltero. ¡Nos vemos en la carne asada! 🥩🍻`);
+            const whatsappUrl = `https://wa.me/${telefono}?text=${mensaje}`;
+
+            // Redirigir a WhatsApp
+            setTimeout(() => {
+                window.open(whatsappUrl, '_blank');
+                cerrarModal();
+            }, 1500);
+        }
+
+        function previewPhoto(event) {
+            const album = document.getElementById('photos-album');
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const newPolaroid = document.createElement('div');
+                    newPolaroid.className = "w-16 h-20 bg-slate-800 border-2 border-white rounded-lg shadow-lg rotate-[-3deg] flex-shrink-0 relative overflow-hidden transition-all duration-300";
+                    newPolaroid.innerHTML = `
+                        <img src="${e.target.result}" class="w-full h-14 object-cover" alt="Foto subida">
+                        <div class="bg-white h-6 w-full flex items-center justify-center text-[7px] text-slate-800 font-bold truncate px-1">¡Nuevo!</div>
+                    `;
+                    album.insertBefore(newPolaroid, album.lastElementChild);
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function cerrarModal() {
+            const modal = document.getElementById('modal-confirmacion');
+            const content = document.getElementById('modal-content');
+            
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+        }
+    </script>
+</body>
+</html>
